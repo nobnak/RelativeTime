@@ -1,0 +1,19 @@
+﻿#pragma kernel CSMain
+
+struct Clock {
+	float2 uv;
+	float t;
+};
+RWStructuredBuffer<Clock> clocks;
+float dt;
+
+[numthreads(256,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID) {
+    Clock c = clocks[id.x];
+    if (c.t < 0.0)
+    	return;
+    
+    c.t += dt;
+    
+    clocks[id.x] = c;
+}
