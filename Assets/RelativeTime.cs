@@ -4,7 +4,8 @@ using System.Runtime.InteropServices;
 using System.Text;
 
 public class RelativeTime : MonoBehaviour {
-	public const string CS_PROP_CLOCKS = "clocks";
+	public const string CS_PROP_CLOCKS_INPUT = "clocksIn";
+	public const string CS_PROP_CLOCKS_OUTPUT = "clocksOut";
 	public const string CS_PROP_DELTA_TIME = "dt";
 	public const int CS_NUM_THREADS = 256;
 
@@ -14,7 +15,7 @@ public class RelativeTime : MonoBehaviour {
 
 	private int numGroups;
 	private Clock[] _clocks;
-	private ComputeBuffer _clocksBuffer;
+	private ComputeBuffer _clocksBuffer0, _clocksBuffer1;
 
 	void Start() {
 		numGroups = Mathf.CeilToInt((float)numClocks / CS_NUM_THREADS);
@@ -22,10 +23,11 @@ public class RelativeTime : MonoBehaviour {
 
 		_clocks = new Clock[numClocks];
 		for (var i = 0; i < _clocks.Length; i++)
-			_clocks[i] = Clock.Null;
+			_clocks[i] = new Clock(Vector2.zero, 0f);
 
-		_clocksBuffer = new ComputeBuffer(numClocks, Marshal.SizeOf(typeof(Clock)));
-		_clocksBuffer.SetData(_clocks);
+		_clocksBuffer0 = new ComputeBuffer(numClocks, Marshal.SizeOf(typeof(Clock)));
+		_clocksBuffer1 = new ComputeBuffer(numClocks, Marshal.SizeOf(typeof(Clock)));
+		_clocksBuffer0.SetData(_clocks);
 
 		StartCoroutine(Logger());
 	}
@@ -35,9 +37,8 @@ public class RelativeTime : MonoBehaviour {
 		while (enabled) {
 			yield return new WaitForSeconds(1f);
 			log.Length = 0;
-			float dt;
-			_clocksBuffer.GetData(_clocks);
-			for (var i = 0; i < _clocks.Length; i++) {
+			_clocksBuffer0.GetData(_clocks);
+			for (var i = 0; i < 100; i++) {
 				var c = _clocks[i];
 				if (c.t < 0 || c.t >= tEnd)
 					continue;
@@ -49,36 +50,30 @@ public class RelativeTime : MonoBehaviour {
 	}
 
 	void OnDestroy() {
-		if (_clocksBuffer != null)
-			_clocksBuffer.Release();
+		if (_clocksBuffer0 != null)
+			_clocksBuffer0.Release();
+		if (_clocksBuffer1 != null)
+			_clocksBuffer1.Release();
 	}
 
 	void Update () {
-		if (Input.GetMouseButtonDown(0)) {
-			var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-			RaycastHit hit;
-			if (collider.Raycast(ray, out hit, float.MaxValue)) {
-				for (var i = 0; i < _clocks.Length; i++) {
-					var c = _clocks[i];
-					if (c.t < 0f || c.t >= tEnd) {
-						c.t = 0f;
-						_clocks[i] = c;
-						break;
-					}
-				}
-				_clocksBuffer.SetData(_clocks);
-			}
-		}
-
-		relativeTimeCompute.SetBuffer(0, CS_PROP_CLOCKS, _clocksBuffer);
+		relativeTimeCompute.SetBuffer(0, CS_PROP_CLOCKS_INPUT, _clocksBuffer0);
+		relativeTimeCompute.SetBuffer(0, CS_PROP_CLOCKS_OUTPUT, _clocksBuffer1);
 		relativeTimeCompute.SetFloat(CS_PROP_DELTA_TIME, Time.deltaTime);
 		relativeTimeCompute.Dispatch(0, numGroups, 1, 1);
+		var tmpBuffer = _clocksBuffer0; _clocksBuffer0 = _clocksBuffer1; _clocksBuffer1 = tmpBuffer;
 	}
 
 	[StructLayout(LayoutKind.Sequential)]
 	struct Clock {
+		public Vector2 uv;
 		public float t;
 
-		public static readonly Clock Null = new Clock() { uv = Vector2.zero, t = -1f };
+		public Clock(Vector2 uv, float t) {
+			this.uv = uv;
+			this.t = t;
+		}
+
+		public static readonly Clock Null = new Clock(Vector2.zero, -1f);
 	}
 }
