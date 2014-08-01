@@ -1,7 +1,6 @@
 ﻿#pragma kernel CSMain
 
 struct Clock {
-	float2 uv;
 	float t;
 };
 RWStructuredBuffer<Clock> clocks;
