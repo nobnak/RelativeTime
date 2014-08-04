@@ -36,9 +36,25 @@ public class RelativeTime : MonoBehaviour {
 
 		_flowers = new GameObject[numClocks];
 
+		StartCoroutine(Cleaner());
 		StartCoroutine(Logger());
 	}
 
+	IEnumerator Cleaner() {
+		while (enabled) {
+			yield return new WaitForSeconds(1f);
+			_clocksBuffer0.GetData(_clocks);
+			for (var i = 0; i < _clocks.Length; i++) {
+				var c = _clocks[i];
+				if (c.t >= tEnd) {
+					c.t = -1f;
+					_clocks[i] = c;
+					Destroy(_flowers[i]);
+				}
+			}
+			_clocksBuffer0.SetData(_clocks);
+		}
+	}
 	IEnumerator Logger() {
 		var log = new StringBuilder();
 		while (enabled) {
@@ -51,8 +67,7 @@ public class RelativeTime : MonoBehaviour {
 					continue;
 				log.AppendFormat("[{0:f}] ", c.t);
 			}
-			if (log.Length > 0)
-				Debug.Log(log.ToString());
+			Debug.Log(log.ToString());
 		}
 	}
 
@@ -85,7 +100,6 @@ public class RelativeTime : MonoBehaviour {
 					if (_flowers[id] != null)
 						Destroy(_flowers[id]);
 
-					Debug.Log("Add flower");
 					var go = (_flowers[id] = (GameObject)Instantiate(flowerfab)).transform;
 					go.parent = transform;
 					go.position = hit.point;
