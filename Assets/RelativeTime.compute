@@ -4,16 +4,21 @@ struct Clock {
 	float2 uv;
 	float t;
 };
+
 StructuredBuffer<Clock> clocksPrev;
 RWStructuredBuffer<Clock> clocksCurr;
+Texture2D HeatTex;
+SamplerState samplerHeatTex;
 float dt;
 
 [numthreads(256,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID) {
     Clock c = clocksPrev[id.x];
     
-    if (c.t >= 0.0)
-    	c.t += dt;
+    if (c.t >= 0.0) {
+    	float u = HeatTex.SampleLevel(samplerHeatTex, c.uv, 0).r;
+    	c.t += dt * (1.0 + u);
+    }
     
     clocksCurr[id.x] = c;
 }
